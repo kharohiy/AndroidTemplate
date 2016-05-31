@@ -11,6 +11,8 @@ import com.squareup.sqlbrite.SqlBrite;
 import java.util.ArrayList;
 import java.util.List;
 
+import rx.schedulers.Schedulers;
+
 public abstract class BaseDatabase<T> {
 
     protected static final String COL_ID = "_id";
@@ -26,7 +28,7 @@ public abstract class BaseDatabase<T> {
         mTableName = tableName;
         mOwnId = ownId;
         SqlBrite sqlBrite = SqlBrite.create();
-        mDatabase = sqlBrite.wrapDatabaseHelper(database);
+        mDatabase = sqlBrite.wrapDatabaseHelper(database, Schedulers.io());
     }
 
     abstract T toObject(Cursor cursor);
@@ -118,8 +120,22 @@ public abstract class BaseDatabase<T> {
     }
 
     public int getCount() {
-        Cursor cursor = mDatabase.query("SELECT " + COL_ID + " FROM " + mTableName);
-        return cursor.getCount();
+        int count = 0;
+        Cursor cursor = null;
+
+        try {
+            cursor = mDatabase.query("SELECT COUNT(*) FROM " + mTableName);
+            if (cursor.getCount() > 0) {
+                cursor.moveToFirst();
+                count = cursor.getInt(0);
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+
+        return count;
     }
 
     protected String toString(long value) {
